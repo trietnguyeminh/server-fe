@@ -1,33 +1,25 @@
 {
   "status": "PASS",
+  "release": "server-fe-agent-sync-v4",
+  "root_cause": "FE auto-router interpreted relative-clause 'where' as a QA interrogative.",
   "checks": {
-    "no_server_token": true,
-    "enter_runs_query": true,
-    "server_check_only_health": true,
-    "server_change_clears_results": true,
-    "recursive_candidate_extraction": true,
-    "inherits_video_id": true,
-    "first_page_previews_immediate": true,
-    "preview_concurrency_6": true,
-    "selected_detail_top": true,
-    "copy_buttons": true,
-    "official_score_not_faked": true,
-    "all_js_dom_ids_exist": true,
-    "image_grid_css": true
+    "node_syntax": true,
+    "exact_user_query_kis": true,
+    "qa_direct_question": true,
+    "trake_e1_e2": true,
+    "relative_where_not_qa": true,
+    "explicit_task_preserved": true,
+    "retrieval_command_rule": true,
+    "agent_sync_preserved": true,
+    "preview_preserved": true
   },
-  "missing_dom_ids": [],
-  "files": {
-    "index.html": {
-      "bytes": 5099,
-      "sha256": "23ff2f21070b3fd1fedb5cdb4857460bb8a4563f5fdf19f2b80eb1dc977d3b2b"
-    },
-    "styles.css": {
-      "bytes": 13649,
-      "sha256": "d0b4220e97780eef4009e870eaa165acc9954c9a8025f261598f7c3f3fbcccb5"
-    },
-    "app.js": {
-      "bytes": 36787,
-      "sha256": "5e3dad8f1fbf4428a24e1099c5c41888ff10a529390c1710399bfe35028d0474"
-    }
+  "node_check": {
+    "returncode": 0,
+    "stderr": ""
+  },
+  "router_regression": {
+    "returncode": 0,
+    "stdout": "{\"name\":\"user_kis_yoga\",\"expected\":\"KIS\",\"got\":\"KIS\",\"source\":\"retrieval command inferred\"}\n{\"name\":\"qa_names\",\"expected\":\"QA\",\"got\":\"QA\",\"source\":\"direct question inferred\"}\n{\"name\":\"trake_e1e2\",\"expected\":\"TRAKE\",\"got\":\"TRAKE\",\"source\":\"E1/E2 inferred\"}\n{\"name\":\"relative_where\",\"expected\":\"KIS\",\"got\":\"KIS\",\"source\":\"retrieval command inferred\"}\n{\"name\":\"explicit_qa\",\"expected\":\"QA\",\"got\":\"QA\",\"source\":\"prefix\"}\n",
+    "stderr": ""
   }
 }
