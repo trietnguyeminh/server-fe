@@ -49,7 +49,7 @@ button { color: inherit; }
 .left-pane {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
 }
 .right-pane { min-width: 0; }
@@ -397,3 +397,117 @@ button { color: inherit; }
   .live-stats { display: none; }
 }
 @media (max-width: 620px) { .candidate-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+
+/* --------------------------------------------------------------------------
+   v2 — QA/TRAKE Agent synchronization
+   -------------------------------------------------------------------------- */
+.agent-card {
+  padding: 13px 14px 12px;
+  overflow: visible;
+}
+.agent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.agent-rule {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.agent-path-badge {
+  flex: 0 0 auto;
+  border: 1px solid #455261;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.agent-path-badge.local { color: #9fb0c0; }
+.agent-path-badge.remote { color: #9be2b3; border-color: #326648; }
+
+.agent-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+.field-group {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.field-group > span {
+  color: #9ca9b7;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.field-group input,
+.field-group select {
+  width: 100%;
+  height: 34px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  outline: none;
+  padding: 0 9px;
+  background: #090e14;
+  color: var(--text);
+}
+.field-group input:focus,
+.field-group select:focus { border-color: #4a5c6e; }
+.field-group input:disabled,
+.field-group select:disabled { opacity: .52; }
+
+.agent-key-field { grid-column: 1 / 2; }
+.agent-button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: 7px;
+}
+.agent-button-row button {
+  height: 34px;
+  border: 1px solid #3b4958;
+  border-radius: 6px;
+  background: #121a24;
+  color: #dce3ea;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+.agent-button-row button:hover { border-color: #64778b; }
+.agent-button-row button:disabled { opacity: .45; cursor: wait; }
+
+.agent-model-field { grid-column: 1 / 2; }
+.agent-base-field { grid-column: 2 / 3; }
+.agent-status {
+  min-height: 16px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.agent-status.good { color: var(--good); }
+.agent-status.bad { color: var(--bad); }
+.agent-status.busy { color: var(--warn); }
+
+@media (max-width: 1120px) {
+  .workspace {
+    grid-template-columns: minmax(360px, 1fr) minmax(0, 1.65fr);
+  }
+  .agent-form { grid-template-columns: 1fr; }
+  .agent-key-field,
+  .agent-model-field,
+  .agent-base-field { grid-column: 1; }
+}
+
+
+/* v3: synchronized two-mode Agent UX; no additional layout changes. */
