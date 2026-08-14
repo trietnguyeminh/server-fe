@@ -10,7 +10,7 @@
 <body>
   <header class="topbar">
     <div class="brand">AIC-RETRIEVAL</div>
-    <div class="topbar-note">IMAGE-FIRST · SERVER AUTH NONE</div>
+    <div class="topbar-note">IMAGE-FIRST · QA/TRAKE AGENT SYNC · SERVER AUTH NONE</div>
   </header>
 
   <main class="workspace">
@@ -26,6 +26,74 @@
           </button>
         </div>
         <div id="healthText" class="server-status">Chưa kiểm tra</div>
+      </section>
+
+
+      <section class="agent-card panel">
+        <div class="agent-head">
+          <div>
+            <div class="panel-title">AGENT CONNECTION</div>
+            <div class="agent-rule">KIS luôn /search · QA/TRAKE → /agent/search khi chọn AI Agent</div>
+          </div>
+          <div id="agentPathBadge" class="agent-path-badge local">LOCAL</div>
+        </div>
+
+        <div class="agent-form">
+          <label class="field-group">
+            <span>Provider</span>
+            <select id="agentProvider">
+              <option value="local">Local rules (không API)</option>
+              <option value="groq">Groq</option>
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="mistral">Mistral</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="xai">xAI</option>
+              <option value="together">Together</option>
+              <option value="fireworks">Fireworks</option>
+              <option value="cerebras">Cerebras</option>
+              <option value="custom_openai_compatible">Custom OpenAI-compatible</option>
+            </select>
+          </label>
+
+          <label class="field-group">
+            <span>Agent mode</span>
+            <select id="agentMode">
+              <option value="local">Local planner</option>
+              <option value="llm_plan_verify">AI Agent (plan + verify)</option>
+            </select>
+          </label>
+
+          <label class="field-group agent-key-field">
+            <span>API key</span>
+            <input id="agentApiKey" type="password" autocomplete="off"
+                   placeholder="Chỉ giữ trong tab hiện tại" />
+          </label>
+
+          <div class="agent-button-row">
+            <button id="loadModelsButton" type="button">↻ TẢI MODEL</button>
+            <button id="testAgentButton" type="button">✓ TEST API</button>
+          </div>
+
+          <label class="field-group agent-model-field">
+            <span>Model</span>
+            <input id="agentModel" list="agentModelList" autocomplete="off"
+                   placeholder="model-id" value="local-rule-based" />
+            <datalist id="agentModelList"></datalist>
+          </label>
+
+          <label class="field-group agent-base-field">
+            <span>Base URL</span>
+            <input id="agentBaseUrl" autocomplete="off"
+                   placeholder="Để trống nếu dùng preset provider" />
+          </label>
+        </div>
+
+        <div id="agentStatus" class="agent-status">
+          Local planner · provider API key không được lưu.
+        </div>
       </section>
 
       <section class="chat-card panel">
