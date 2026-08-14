@@ -21,6 +21,9 @@ const state = {
   previewFailed: 0,
   previewObserver: null,
   serverGeneration: 0,
+  agentModels: [],
+  agentTestOk: false,
+  lastSearchEndpoint: "/search",
   zoom: { scale: 1, x: 0, y: 0, dragging: false, sx: 0, sy: 0, ox: 0, oy: 0 },
 };
 
@@ -141,8 +144,37 @@ function parseBtcTask(raw) {
   }
 
   const folded = foldText(original);
-  if (/\b(ai|gì|gi|nào|nao|đâu|dau|khi nào|khi nao|bao nhiêu|bao nhieu|what|who|where|when|which|how many|why)\b/.test(folded) || /\?$/.test(original)) {
-    return { task: "QA", query: original, source: "question inferred" };
+
+  // v4: a relative clause must NOT trigger QA just because it contains
+  // "where/who/which/...". Example:
+  // "Los Angeles where participants exercise ... Find the clip ..."
+  //
+  // QA now requires a direct-question signal.
+  const hasQuestionMark = /\?/.test(original);
+
+  const directEnglishQuestion =
+    /(?:^|[.!?]\s+)(?:what|who|where|when|which|why|how(?:\s+(?:many|much|old|long|far))?)\b/.test(folded);
+
+  const directVietnameseQuestion =
+    /(?:^|[.!?]\s+)(?:ai|gi|nao|dau|khi nao|bao nhieu)\b/.test(folded)
+    || /\b(?:la)\s+(?:ai|gi|nao|dau)\b/.test(folded)
+    || /\b(?:ten|so|bao nhieu)\b[^?]{0,90}\?/.test(folded);
+
+  if (hasQuestionMark && (directEnglishQuestion || directVietnameseQuestion)) {
+    return { task: "QA", query: original, source: "direct question inferred" };
+  }
+
+  const kisRetrievalCommand =
+    /(?:^|[.!?]\s+)(?:find|locate|retrieve|identify|show me)\s+(?:the\s+|a\s+)?(?:clip|video|scene|shot|segment|moment)\b/.test(folded)
+    || /(?:^|[.!?]\s+)(?:hay\s+)?tim\s+(?:doan\s+)?(?:clip|video|canh|doan phim)\b/.test(folded);
+
+  if (kisRetrievalCommand) {
+    return { task: "KIS", query: original, source: "retrieval command inferred" };
+  }
+
+  // Direct question without '?' is still QA. Relative clauses are not.
+  if (directEnglishQuestion || directVietnameseQuestion) {
+    return { task: "QA", query: original, source: "direct question inferred" };
   }
 
   return { task: "KIS", query: original, source: "fallback KIS" };
@@ -156,6 +188,7 @@ function updateRoutePreview() {
   }
   const route = parseBtcTask(text);
   setTaskBadge(route.task, route.source);
+  $("routeHint").textContent = `${route.source} · ${routeBackendHint(route.task)}`;
 }
 
 async function request(path, options = {}) {
@@ -270,6 +303,218 @@ function onServerInputChanged() {
   state.healthOk = false;
   setHealth("idle", next ? "URL đã đổi · bấm CHECK" : "Chưa kiểm tra");
   clearResults(next ? "Server đã đổi. Gửi query mới sau khi CHECK." : "Chưa có API Server.");
+}
+
+
+function setAgentStatus(kind, text) {
+  const node = $("agentStatus");
+  node.className = `agent-status ${kind || ""}`;
+  node.textContent = text;
+}
+
+function agentProvider() {
+  return String($("agentProvider").value || "local").trim().toLowerCase();
+}
+
+function agentMode() {
+  return String($("agentMode").value || "local").trim().toLowerCase();
+}
+
+function agentIsRemote() {
+  return agentProvider() !== "local" && agentMode() !== "local";
+}
+
+function providerRequestFields({ requireModel = true } = {}) {
+  if (!agentIsRemote()) {
+    return {
+      provider: "local",
+      api_key: "",
+      model: "local-rule-based",
+      base_url: "",
+      agent_mode: "local",
+    };
+  }
+
+  const model = String($("agentModel").value || "").trim();
+  if (requireModel && !model) {
+    throw new Error("Chưa chọn model. Bấm TẢI MODEL hoặc nhập Model ID.");
+  }
+
+  return {
+    provider: agentProvider(),
+    api_key: String($("agentApiKey").value || ""),
+    model,
+    base_url: String($("agentBaseUrl").value || "").trim(),
+    agent_mode: agentMode(),
+  };
+}
+
+function updateAgentPathBadge() {
+  const badge = $("agentPathBadge");
+  if (agentIsRemote()) {
+    badge.textContent = "QA/TRAKE → AI AGENT";
+    badge.className = "agent-path-badge remote";
+  } else {
+    badge.textContent = "LOCAL";
+    badge.className = "agent-path-badge local";
+  }
+}
+
+function onAgentProviderChanged() {
+  const provider = agentProvider();
+  const key = $("agentApiKey");
+  const model = $("agentModel");
+  const modelList = $("agentModelList");
+
+  state.agentTestOk = false;
+  modelList.replaceChildren();
+
+  if (provider === "local") {
+    key.value = "";
+    key.disabled = true;
+    model.value = "local-rule-based";
+    $("agentMode").value = "local";
+    setAgentStatus("", "Local planner · KIS/TRAKE/QA dùng /search.");
+  } else {
+    key.disabled = false;
+    model.value = "";
+    if ($("agentMode").value === "local") $("agentMode").value = "llm_plan_verify";
+    setAgentStatus("", "AI Agent = plan trước retrieval + verify evidence sau retrieval. QA/TRAKE dùng /agent/search; KIS vẫn /search.");
+  }
+  updateAgentPathBadge();
+  updateRoutePreview();
+}
+
+function onAgentModeChanged() {
+  state.agentTestOk = false;
+  updateAgentPathBadge();
+  updateRoutePreview();
+}
+
+async function loadAgentModels() {
+  const button = $("loadModelsButton");
+  button.disabled = true;
+  setAgentStatus("busy", "Đang tải danh sách model…");
+
+  try {
+    if (agentProvider() === "local") {
+      state.agentModels = ["local-rule-based"];
+    } else {
+      const fields = providerRequestFields({ requireModel: false });
+      const payload = {
+        provider: fields.provider,
+        api_key: fields.api_key,
+        base_url: fields.base_url,
+      };
+      const data = await requestJson("/models", payload);
+      state.agentModels = Array.isArray(data.models)
+        ? data.models.map(String).filter(Boolean)
+        : [];
+    }
+
+    const datalist = $("agentModelList");
+    datalist.replaceChildren();
+    for (const name of state.agentModels) {
+      const option = document.createElement("option");
+      option.value = name;
+      datalist.appendChild(option);
+    }
+
+    if (state.agentModels.length) {
+      const current = String($("agentModel").value || "").trim();
+      if (!current || !state.agentModels.includes(current)) {
+        $("agentModel").value = state.agentModels[0];
+      }
+      setAgentStatus(
+        "good",
+        `Model list PASS · ${state.agentModels.length} model · selected ${$("agentModel").value}`
+      );
+    } else {
+      setAgentStatus("bad", "Provider không trả model list. Nhập Model ID thủ công.");
+    }
+  } catch (error) {
+    setAgentStatus("bad", `Tải model FAIL · ${error.message}`);
+  } finally {
+    button.disabled = false;
+    updateRoutePreview();
+  }
+}
+
+async function testAgentApi() {
+  const button = $("testAgentButton");
+  button.disabled = true;
+  setAgentStatus("busy", "Đang test provider API…");
+
+  try {
+    if (agentProvider() !== "local" && !String($("agentModel").value || "").trim()) {
+      await loadAgentModels();
+    }
+    const fields = providerRequestFields({ requireModel: true });
+    const data = await requestJson("/agent/test", {
+      provider: fields.provider,
+      api_key: fields.api_key,
+      model: fields.model,
+      base_url: fields.base_url,
+    });
+    state.agentTestOk = true;
+    setAgentStatus(
+      "good",
+      `Test API PASS · ${data.provider || fields.provider} · ${data.model || fields.model}`
+    );
+  } catch (error) {
+    state.agentTestOk = false;
+    setAgentStatus("bad", `Test API FAIL · ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function ensureAgentReadyForTask(task) {
+  // KIS stays on the strong/fast deterministic branch.
+  if (task === "KIS" || !agentIsRemote()) return;
+
+  if (!String($("agentModel").value || "").trim()) {
+    await loadAgentModels();
+  }
+  providerRequestFields({ requireModel: true });
+}
+
+function searchRequestForRoute(route) {
+  // Preserve KIS speed/behavior exactly.
+  if (route.task === "KIS" || !agentIsRemote()) {
+    return {
+      endpoint: "/search",
+      pathLabel: "direct /search",
+      payload: {
+        task_type: route.task,
+        query: route.query,
+        top_k: 100,
+      },
+    };
+  }
+
+  // Match the Kaggle smoke-test path for hard QA / TRAKE queries.
+  const fields = providerRequestFields({ requireModel: true });
+  return {
+    endpoint: "/agent/search",
+    pathLabel: "AI_AGENT_PLAN_VERIFY /agent/search",
+    payload: {
+      task_type: route.task,
+      query: route.query,
+      agent_mode: "llm_plan_verify",
+      provider: fields.provider,
+      api_key: fields.api_key,
+      model: fields.model,
+      base_url: fields.base_url,
+    },
+  };
+}
+
+function routeBackendHint(task) {
+  if (!task) return "BTC task auto-route";
+  if (task === "KIS") return "KIS · direct /search";
+  if (agentIsRemote()) return `${task} · AI Agent(plan+verify) /agent/search`;
+  return `${task} · direct /search (agent local/chưa cấu hình)`;
 }
 
 function candidatePts(row) {
@@ -887,7 +1132,13 @@ async function runQuery(rawText) {
   const started = performance.now();
 
   try {
-    const data = await requestJson("/search", { task_type: route.task, query: route.query, top_k: 100 });
+    await ensureAgentReadyForTask(route.task);
+    const searchRequest = searchRequestForRoute(route);
+    state.lastSearchEndpoint = searchRequest.endpoint;
+
+    pending.textContent = `Đã nhận ${route.task}. ${searchRequest.pathLabel} · đang retrieve + load ảnh…`;
+
+    const data = await requestJson(searchRequest.endpoint, searchRequest.payload);
     const ms = Math.round(performance.now() - started);
 
     clearObjectUrls();
@@ -897,7 +1148,7 @@ async function runQuery(rawText) {
     state.selectedIndex = -1;
     state.lightboxIndex = -1;
 
-    $("querySummary").textContent = `${route.task} · ${route.query.replace(/\s+/g, " ")} · ${ms} ms`;
+    $("querySummary").textContent = `${route.task} · ${state.lastSearchEndpoint} · ${route.query.replace(/\s+/g, " ")} · ${ms} ms`;
     renderCandidates();
     renderRecall();
     if (state.candidates.length) renderSelectedDetail(0, { scroll: false });
@@ -908,10 +1159,14 @@ async function runQuery(rawText) {
     meta.textContent = `${ms} ms · ${nowTime()}`;
     pending.appendChild(meta);
     state.healthOk = true;
-    setHealth("good", `ONLINE · search ${ms} ms`);
+    setHealth("good", `ONLINE · ${state.lastSearchEndpoint} ${ms} ms`);
   } catch (error) {
     pending.classList.add("error");
-    pending.textContent = `Search lỗi: ${error.message}`;
+    const path = state.lastSearchEndpoint || "/search";
+    const suffix = error.status === 400
+      ? " · Backend đã nhận request nhưng từ chối/xảy ra exception; đây không phải browser timeout."
+      : "";
+    pending.textContent = `Search lỗi ${path}: ${error.message}${suffix}`;
     const meta = document.createElement("span");
     meta.className = "message-meta";
     meta.textContent = nowTime();
@@ -1028,6 +1283,16 @@ function init() {
   }
 
   $("healthButton").addEventListener("click", () => checkHealth());
+
+  $("agentProvider").addEventListener("change", onAgentProviderChanged);
+  $("agentMode").addEventListener("change", onAgentModeChanged);
+  $("agentModel").addEventListener("input", () => { state.agentTestOk = false; updateRoutePreview(); });
+  $("agentBaseUrl").addEventListener("input", () => { state.agentTestOk = false; });
+  $("agentApiKey").addEventListener("input", () => { state.agentTestOk = false; });
+  $("loadModelsButton").addEventListener("click", loadAgentModels);
+  $("testAgentButton").addEventListener("click", testAgentApi);
+  onAgentProviderChanged();
+
   $("sendButton").addEventListener("click", () => runQuery($("queryInput").value));
   $("queryInput").addEventListener("input", updateRoutePreview);
   $("queryInput").addEventListener("keydown", (event) => {
@@ -1057,7 +1322,7 @@ function init() {
   initLightboxPanZoom();
 
   clearResults();
-  addMessage("assistant", "AIC Retrieval sẵn sàng. Enter query → ảnh xuất ngay bên phải. Shift+Enter để xuống dòng.", { meta: nowTime() });
+  addMessage("assistant", "AIC Retrieval sẵn sàng. Auto-route: E1/E2 → TRAKE; câu hỏi trực tiếp → QA; “Find the clip / Hãy tìm đoạn clip” → KIS. Enter query → ảnh xuất bên phải.", { meta: nowTime() });
   if (api) checkHealth();
   $("queryInput").focus();
 }
