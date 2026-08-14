@@ -10,6 +10,7 @@
 <body>
   <header class="topbar">
     <div class="brand">AIC-RETRIEVAL</div>
+    <div class="topbar-note">IMAGE-FIRST · SERVER AUTH NONE</div>
   </header>
 
   <main class="workspace">
@@ -40,7 +41,7 @@
                     placeholder="Dán query BTC vào đây. Enter để tìm, Shift+Enter để xuống dòng."></textarea>
           <div class="composer-foot">
             <span id="routeHint">BTC task auto-route</span>
-            <button id="sendButton" type="button">SEND</button>
+            <button id="sendButton" type="button">SEARCH</button>
           </div>
         </div>
       </section>
@@ -48,17 +49,43 @@
 
     <section class="right-pane panel candidates-panel">
       <div class="candidates-head">
-        <div>
-          <div class="panel-title">CANDIDATES</div>
+        <div class="candidate-head-main">
+          <div class="panel-title">IMAGE OUTPUT</div>
           <div id="querySummary" class="query-summary">Chưa có truy vấn.</div>
         </div>
-        <div class="recall-formula">
-          <div class="recall-title">BTC SCORE · MEAN OF TOP-k R-SCORES</div>
-          <div>R@k = max R-Score(rᵢ), i = 1..k · k ∈ {1, 5, 20, 50, 100}</div>
-          <div>Final = (R@1 + R@5 + R@20 + R@50 + R@100) / 5</div>
-          <div id="recallTopStatus" class="recall-note">Live không có GT → N/A. Không dùng similarity score thay R-Score.</div>
+        <div class="live-stats">
+          <div><strong id="candidateCount">0</strong><span> candidates</span></div>
+          <div><strong id="previewCount">0/0</strong><span> previews</span></div>
+          <div id="officialScoreStatus" class="official-score-status">Official R@K: cần GT</div>
         </div>
       </div>
+
+      <section id="selectedDetail" class="selected-detail hidden" aria-live="polite">
+        <div class="selected-detail-head">
+          <div>
+            <div id="selectedTitle" class="selected-title">Candidate</div>
+            <div id="selectedSub" class="selected-sub"></div>
+          </div>
+          <div class="selected-actions">
+            <button id="copyVideoButton" type="button">COPY VIDEO</button>
+            <button id="copyFrameButton" type="button">COPY FRAME</button>
+            <button id="copyPtsButton" type="button">COPY VIDEO@PTS</button>
+            <button id="copyJsonButton" type="button">COPY JSON</button>
+            <button id="openLightboxButton" type="button" class="accent-action">OPEN LARGE</button>
+          </div>
+        </div>
+        <div class="selected-detail-body">
+          <div class="selected-preview-wrap">
+            <img id="selectedPreview" class="selected-preview" alt="Selected candidate" />
+            <div id="selectedPreviewPlaceholder" class="selected-preview-placeholder">PREVIEW</div>
+          </div>
+          <div id="selectedMeta" class="selected-meta"></div>
+        </div>
+        <details class="raw-json-details">
+          <summary>RAW SOURCE PAYLOAD</summary>
+          <pre id="selectedRawJson"></pre>
+        </details>
+      </section>
 
       <div id="candidateGrid" class="candidate-grid empty-grid">
         <div class="empty-state">
@@ -68,10 +95,13 @@
         </div>
       </div>
 
-      <section id="recallDetail" class="recall-detail">
-        <div class="recall-detail-title">BTC R@K — CHI TIẾT</div>
-        <div class="recall-empty">Chưa có kết quả để tính.</div>
-      </section>
+      <details class="score-details">
+        <summary>OFFICIAL BTC R@K</summary>
+        <section id="recallDetail" class="recall-detail">
+          <div class="recall-detail-title">BTC R@K — CHI TIẾT</div>
+          <div class="recall-empty">Chưa có kết quả để tính.</div>
+        </section>
+      </details>
     </section>
   </main>
 
